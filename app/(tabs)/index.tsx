@@ -1,11 +1,11 @@
-import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
-import { useEffect, useState } from "react";
+import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
+import { useEffect, useState, useRef } from "react";
 import * as Location from "expo-location";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useTripData } from "@/hooks/use-trip-data";
-import { useTelemetry } from "@/hooks/use-telemetry";
-import { useSettings } from "@/hooks/use-settings";
+import { useBluetooth } from "@/hooks/use-bluetooth";
+import { GlassCard } from "@/components/glass-card";
 import { NotificationBanner } from "@/components/notification-banner";
 import { TripHistoryModal } from "@/components/trip-history-modal";
 
@@ -29,8 +29,8 @@ export default function HomeScreen() {
   } | null>(null);
 
   const { trips, startTrip, addWaypoint, endTrip } = useTripData();
-  const { isConnected: telemetryConnected, addSnapshot } = useTelemetry();
-  const { settings } = useSettings();
+  const { isConnected: bluetoothConnected } = useBluetooth();
+  const speedometerScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     (async () => {
@@ -51,7 +51,7 @@ export default function HomeScreen() {
             distanceInterval: 1,
           },
           (loc: Location.LocationObject) => {
-            const speed = (loc.coords.speed || 0) * 3.6; // m/s to km/h
+            const speed = (loc.coords.speed || 0) * 3.6;
             const newLocation = {
               speed: Math.round(speed * 10) / 10,
               heading: loc.coords.heading || 0,
@@ -60,7 +60,6 @@ export default function HomeScreen() {
             };
             setLocation(newLocation);
 
-            // Adicionar waypoint se estiver rastreando
             if (isTracking) {
               addWaypoint(
                 {
@@ -86,44 +85,9 @@ export default function HomeScreen() {
     };
   }, [isTracking, permission, addWaypoint]);
 
-  // Simular telemetria quando conectado
-  useEffect(() => {
-    if (!telemetryConnected) return;
-
-    const interval = setInterval(() => {
-      const temperature = Math.random() * 40 + 50;
-      const rpm = Math.random() * 15000;
-      const fuel = Math.random() * 100;
-      const battery = Math.random() * 3 + 11;
-      const pressure = Math.random() * 1 + 1.5;
-
-      addSnapshot({ temperature, rpm, fuel, battery, pressure });
-
-      // Verificar alertas
-      if (temperature > settings.temperatureAlertThreshold) {
-        setNotification({
-          type: "warning",
-          title: "Temperatura Alta",
-          message: `Motor em ${Math.round(temperature)}°C`,
-        });
-      }
-
-      if (fuel < settings.fuelAlertThreshold) {
-        setNotification({
-          type: "warning",
-          title: "Combustível Baixo",
-          message: `Apenas ${Math.round(fuel)}% de combustível`,
-        });
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [telemetryConnected, addSnapshot, settings]);
-
   const speed = location?.speed || 0;
   const speedPercentage = Math.min((speed / 200) * 100, 100);
   const rpm = Math.round((speed / 200) * 15000);
-  const rpmPercentage = Math.min((rpm / 15000) * 100, 100);
 
   const handleStartTracking = async () => {
     if (!isTracking && location) {
@@ -160,7 +124,7 @@ export default function HomeScreen() {
   return (
     <ScreenContainer className="p-4">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="flex-1 gap-6">
+        <View className="flex-1 gap-5">
           {/* Notification Banner */}
           {notification && (
             <NotificationBanner
@@ -172,10 +136,10 @@ export default function HomeScreen() {
             />
           )}
 
-          {/* Header com Status */}
-          <View className="gap-2 pt-2">
-            <Text className="text-4xl font-bold text-foreground">R3 Connect</Text>
-            <View className="flex-row items-center gap-2">
+          {/* Header */}
+          <View className="gap-1 pt-2">
+            <Text className="text-5xl font-bold text-foreground">R3 Connect</Text>
+            <View className="flex-row items-center gap-2 mt-2">
               <View
                 style={[
                   styles.statusDot,
@@ -187,7 +151,7 @@ export default function HomeScreen() {
               <Text className="text-sm font-semibold text-muted">
                 {isTracking ? "Rastreando" : "Parado"}
               </Text>
-              {telemetryConnected && (
+              {bluetoothConnected && (
                 <>
                   <View style={{ width: 1, height: 12, backgroundColor: colors.border, marginHorizontal: 8 }} />
                   <View
@@ -199,117 +163,116 @@ export default function HomeScreen() {
                     ]}
                   />
                   <Text className="text-sm font-semibold text-muted">
-                    Telemetria
+                    Conectado
                   </Text>
                 </>
               )}
             </View>
           </View>
 
-          {/* Velocímetro Digital - iOS 26 Style */}
-          <View className="items-center gap-4">
-            <View
-              style={[
-                styles.speedometerContainer,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              {/* Velocímetro Circular com Gradiente */}
-              <View
-                style={[
-                  styles.speedometerCircle,
-                  {
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                {/* Agulha Animada */}
-                <View
-                  style={[
-                    styles.needle,
-                    {
-                      backgroundColor: speed > 150 ? "#FF3B30" : colors.primary,
-                      transform: [
-                        {
-                          rotate: `${(speedPercentage / 100) * 180 - 90}deg`,
-                        },
-                      ],
-                    },
-                  ]}
-                />
-
-                {/* Centro do Velocímetro */}
-                <View className="items-center justify-center">
-                  <Text className="text-6xl font-bold text-foreground">
-                    {Math.round(speed)}
-                  </Text>
-                  <Text className="text-xs font-semibold text-muted">km/h</Text>
-                </View>
-              </View>
-
-              {/* Marcas de Velocidade */}
-              <View className="flex-row justify-between w-full px-6 mt-3">
-                <Text className="text-xs font-semibold text-muted">0</Text>
-                <Text className="text-xs font-semibold text-muted">100</Text>
-                <Text className="text-xs font-semibold text-muted">200</Text>
-              </View>
-            </View>
-
-            {/* RPM com Barra de Progresso Moderna */}
-            <View
-              style={[
-                styles.rpmCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View className="flex-row justify-between items-center mb-3">
-                <Text className="text-sm font-semibold text-foreground">RPM</Text>
-                <Text className="text-lg font-bold text-primary">
-                  {rpm.toLocaleString('pt-BR')}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    backgroundColor: colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${rpmPercentage}%`,
-                      backgroundColor: speed > 150 ? "#FF3B30" : colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-              <View className="flex-row justify-between mt-2">
-                <Text className="text-xs text-muted">0</Text>
-                <Text className="text-xs text-muted">15000</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Mini Player Spotify - Glassmorphism */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.spotifyCard,
+          {/* Speedometer Card - Premium Design */}
+          <Animated.View
+            style={[
               {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                opacity: pressed ? 0.8 : 1,
+                transform: [{ scale: speedometerScale }],
               },
             ]}
           >
+            <GlassCard variant="secondary">
+              <View style={styles.speedometerContainer}>
+                <View style={styles.speedometerContent}>
+                  <Text style={styles.speedValue}>{Math.round(speed)}</Text>
+                  <Text style={styles.speedUnit}>km/h</Text>
+                </View>
+                <View
+                  style={[
+                    styles.speedometerBar,
+                    {
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.speedometerFill,
+                      {
+                        width: `${speedPercentage}%`,
+                        backgroundColor: speed > 150 ? "#FF3B30" : colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            </GlassCard>
+          </Animated.View>
+
+          {/* RPM & Status Grid */}
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <GlassCard>
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold text-muted">RPM</Text>
+                  <Text className="text-3xl font-bold text-foreground">
+                    {rpm.toLocaleString("pt-BR")}
+                  </Text>
+                  <View
+                    style={[
+                      styles.miniBar,
+                      {
+                        backgroundColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.miniBarFill,
+                        {
+                          width: `${(rpm / 15000) * 100}%`,
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </GlassCard>
+            </View>
+
+            <View className="flex-1">
+              <GlassCard>
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold text-muted">COMBUSTÍVEL</Text>
+                  <Text className="text-3xl font-bold text-foreground">75%</Text>
+                  <Text className="text-xs text-muted">~150 km</Text>
+                </View>
+              </GlassCard>
+            </View>
+          </View>
+
+          {/* Status Cards */}
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <GlassCard>
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold text-muted">TEMPERATURA</Text>
+                  <Text className="text-3xl font-bold text-foreground">68°C</Text>
+                  <Text className="text-xs text-muted">Normal</Text>
+                </View>
+              </GlassCard>
+            </View>
+
+            <View className="flex-1">
+              <GlassCard>
+                <View className="gap-2">
+                  <Text className="text-xs font-semibold text-muted">BATERIA</Text>
+                  <Text className="text-3xl font-bold text-foreground">12.6V</Text>
+                  <Text className="text-xs text-muted">OK</Text>
+                </View>
+              </GlassCard>
+            </View>
+          </View>
+
+          {/* Spotify Mini Player */}
+          <GlassCard variant="tertiary">
             <View className="flex-row items-center gap-3">
               <View
                 style={[
@@ -338,72 +301,7 @@ export default function HomeScreen() {
                 <Text className="text-lg">▶</Text>
               </View>
             </View>
-          </Pressable>
-
-          {/* Status Cards - Grid 2x2 */}
-          <View className="gap-3">
-            <View className="flex-row gap-3">
-              <View
-                className="flex-1"
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text className="text-xs font-semibold text-muted mb-2">Combustível</Text>
-                <Text className="text-2xl font-bold text-foreground">75%</Text>
-                <Text className="text-xs text-muted mt-2">~150 km</Text>
-              </View>
-              <View
-                className="flex-1"
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text className="text-xs font-semibold text-muted mb-2">Temperatura</Text>
-                <Text className="text-2xl font-bold text-foreground">68°C</Text>
-                <Text className="text-xs text-muted mt-2">Normal</Text>
-              </View>
-            </View>
-
-            <View className="flex-row gap-3">
-              <View
-                className="flex-1"
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text className="text-xs font-semibold text-muted mb-2">Bateria</Text>
-                <Text className="text-2xl font-bold text-foreground">12.6V</Text>
-                <Text className="text-xs text-muted mt-2">OK</Text>
-              </View>
-              <View
-                className="flex-1"
-                style={[
-                  styles.statusCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text className="text-xs font-semibold text-muted mb-2">Bluetooth</Text>
-                <Text className="text-2xl font-bold text-foreground">🔵</Text>
-                <Text className="text-xs text-muted mt-2">Desconectado</Text>
-              </View>
-            </View>
-          </View>
+          </GlassCard>
 
           {/* Action Buttons */}
           <View className="gap-3">
@@ -418,7 +316,7 @@ export default function HomeScreen() {
               ]}
             >
               <Text className="text-white font-semibold text-center text-base">
-                {isTracking ? "Parar Rastreamento" : "Iniciar Viagem"}
+                {isTracking ? "⏹ Parar Rastreamento" : "▶ Iniciar Viagem"}
               </Text>
             </Pressable>
 
@@ -434,35 +332,29 @@ export default function HomeScreen() {
               ]}
             >
               <Text className="text-foreground font-semibold text-center text-base">
-                Histórico de Viagens ({trips.length})
+                📊 Histórico ({trips.length})
               </Text>
             </Pressable>
           </View>
 
           {/* Location Info */}
           {location && (
-            <View
-              style={[
-                styles.infoCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text className="text-xs font-bold text-muted mb-2">
-                LOCALIZAÇÃO
-              </Text>
-              <Text className="text-xs text-foreground font-mono">
-                Lat: {location.latitude.toFixed(6)}
-              </Text>
-              <Text className="text-xs text-foreground font-mono">
-                Lon: {location.longitude.toFixed(6)}
-              </Text>
-              <Text className="text-xs text-foreground font-mono mt-1">
-                Rumo: {Math.round(location.heading)}°
-              </Text>
-            </View>
+            <GlassCard variant="secondary">
+              <View className="gap-1">
+                <Text className="text-xs font-bold text-muted mb-2">
+                  LOCALIZAÇÃO
+                </Text>
+                <Text className="text-xs text-foreground font-mono">
+                  Lat: {location.latitude.toFixed(4)}
+                </Text>
+                <Text className="text-xs text-foreground font-mono">
+                  Lon: {location.longitude.toFixed(4)}
+                </Text>
+                <Text className="text-xs text-foreground font-mono mt-1">
+                  Rumo: {Math.round(location.heading)}°
+                </Text>
+              </View>
+            </GlassCard>
           )}
         </View>
       </ScrollView>
@@ -484,73 +376,56 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   speedometerContainer: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    borderWidth: 1,
-    justifyContent: "center",
     alignItems: "center",
-    position: "relative",
-  },
-  speedometerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 2,
     justifyContent: "center",
+    gap: 12,
+  },
+  speedometerContent: {
     alignItems: "center",
-    position: "relative",
   },
-  needle: {
-    position: "absolute",
-    width: 4,
-    height: 100,
-    borderRadius: 2,
-    bottom: "50%",
+  speedValue: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#0066CC",
   },
-  rpmCard: {
+  speedUnit: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8E8E93",
+    marginTop: 4,
+  },
+  speedometerBar: {
     width: "100%",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  progressBar: {
     height: 6,
     borderRadius: 3,
     overflow: "hidden",
   },
-  progressFill: {
+  speedometerFill: {
     height: "100%",
     borderRadius: 3,
   },
-  spotifyCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+  miniBar: {
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  miniBarFill: {
+    height: "100%",
+    borderRadius: 2,
   },
   albumArt: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-  },
-  statusCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
   },
   primaryButton: {
     paddingVertical: 14,
@@ -565,12 +440,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-  },
-  infoCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
     borderWidth: 1,
   },
 });

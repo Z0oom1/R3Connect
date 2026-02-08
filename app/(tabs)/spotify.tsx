@@ -1,92 +1,79 @@
-import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
-import { useState, useEffect } from "react";
+import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
+import { useState, useEffect, useRef } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { GlassCard } from "@/components/glass-card";
 
-interface SpotifyTrack {
+interface Song {
   id: string;
   title: string;
   artist: string;
-  album: string;
   duration: number;
   progress: number;
-  isPlaying: boolean;
 }
 
 export default function SpotifyScreen() {
   const colors = useColors();
   const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState<SpotifyTrack>({
+  const [currentSong, setCurrentSong] = useState<Song>({
     id: "1",
-    title: "Conecte ao Spotify",
-    artist: "R3 Connect Plus",
-    album: "Seu Spotify",
-    duration: 0,
-    progress: 0,
-    isPlaying: false,
+    title: "Midnight City",
+    artist: "M83",
+    duration: 244,
+    progress: 120,
   });
 
-  const [queue, setQueue] = useState<SpotifyTrack[]>([
-    {
-      id: "2",
-      title: "Próxima Música",
-      artist: "Artista",
-      album: "Álbum",
-      duration: 240,
-      progress: 0,
-      isPlaying: false,
-    },
+  const [queue, setQueue] = useState<Song[]>([
+    { id: "2", title: "Electric Feel", artist: "MGMT", duration: 236, progress: 0 },
+    { id: "3", title: "Take On Me", artist: "a-ha", duration: 225, progress: 0 },
+    { id: "4", title: "Synthwave Dreams", artist: "The Midnight", duration: 256, progress: 0 },
   ]);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Simular progresso da música
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !isConnected) return;
 
     const interval = setInterval(() => {
-      setCurrentTrack((prev) => ({
-        ...prev,
-        progress: Math.min(prev.progress + 1, prev.duration),
-      }));
+      setCurrentSong((prev) => {
+        const newProgress = prev.progress + 1;
+        if (newProgress >= prev.duration) {
+          // Passar para próxima música
+          if (queue.length > 0) {
+            setQueue((q) => q.slice(1));
+            setCurrentSong(queue[0] || prev);
+            return queue[0] || prev;
+          }
+          setIsPlaying(false);
+          return prev;
+        }
+        return { ...prev, progress: newProgress };
+      });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, isConnected, queue]);
 
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
-    if (!isConnected) {
-      setCurrentTrack({
-        id: "spotify-1",
-        title: "Blinding Lights",
-        artist: "The Weeknd",
-        album: "After Hours",
-        duration: 200,
-        progress: 45,
-        isPlaying: true,
-      });
-      setIsPlaying(true);
-    }
+  const handleConnect = async () => {
+    setIsConnected(true);
+    setIsPlaying(true);
+  };
+
+  const handleDisconnect = () => {
+    setIsConnected(false);
+    setIsPlaying(false);
   };
 
   const handlePlayPause = () => {
     setIsPlaying(!isPlaying);
-    setCurrentTrack((prev) => ({
-      ...prev,
-      isPlaying: !isPlaying,
-    }));
   };
 
   const handleSkip = () => {
     if (queue.length > 0) {
-      const next = queue[0];
-      setCurrentTrack({
-        ...next,
-        progress: 0,
-        isPlaying: true,
-      });
-      setQueue((prev) => prev.slice(1));
-      setIsPlaying(true);
+      setQueue((q) => q.slice(1));
+      setCurrentSong(queue[0] || currentSong);
     }
   };
 
@@ -96,23 +83,19 @@ export default function SpotifyScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const progressPercentage = currentTrack.duration
-    ? (currentTrack.progress / currentTrack.duration) * 100
-    : 0;
-
   return (
     <ScreenContainer className="p-4">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-        <View className="flex-1 gap-6">
+        <View className="flex-1 gap-5">
           {/* Header */}
-          <View className="gap-2 pt-2">
-            <Text className="text-4xl font-bold text-foreground">Spotify</Text>
-            <View className="flex-row items-center gap-2">
+          <View className="gap-1 pt-2">
+            <Text className="text-5xl font-bold text-foreground">Spotify</Text>
+            <View className="flex-row items-center gap-2 mt-2">
               <View
                 style={[
                   styles.statusDot,
                   {
-                    backgroundColor: isConnected ? "#34C759" : "#8E8E93",
+                    backgroundColor: isConnected ? "#1DB954" : "#8E8E93",
                   },
                 ]}
               />
@@ -122,228 +105,252 @@ export default function SpotifyScreen() {
             </View>
           </View>
 
-          {/* Album Art - iOS 26 Style com Sombra */}
-          <View className="items-center">
-            <View
-              style={[
-                styles.albumArt,
-                {
-                  backgroundColor: colors.primary,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text className="text-6xl">🎵</Text>
-            </View>
-          </View>
-
-          {/* Track Info */}
-          <View className="items-center gap-2">
-            <Text className="text-2xl font-bold text-foreground text-center">
-              {currentTrack.title}
-            </Text>
-            <Text className="text-base text-muted text-center">
-              {currentTrack.artist}
-            </Text>
-            <Text className="text-sm text-muted">{currentTrack.album}</Text>
-          </View>
-
-          {/* Progress Bar Moderna */}
-          <View className="gap-2">
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progressPercentage}%`,
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              />
-            </View>
-            <View className="flex-row justify-between">
-              <Text className="text-xs text-muted font-semibold">
-                {formatTime(currentTrack.progress)}
-              </Text>
-              <Text className="text-xs text-muted font-semibold">
-                {formatTime(currentTrack.duration)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Playback Controls - iOS 26 Style */}
-          <View className="flex-row justify-center items-center gap-8">
-            <Pressable
-              style={({ pressed }) => [
-                styles.controlButton,
-                {
-                  opacity: pressed ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Text className="text-2xl">⏮</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handlePlayPause}
-              disabled={!isConnected}
-              style={({ pressed }) => [
-                styles.playButton,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: !isConnected ? 0.5 : pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              <Text className="text-3xl">
-                {isPlaying ? "⏸" : "▶"}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleSkip}
-              disabled={!isConnected}
-              style={({ pressed }) => [
-                styles.controlButton,
-                {
-                  opacity: !isConnected ? 0.5 : pressed ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Text className="text-2xl">⏭</Text>
-            </Pressable>
-          </View>
-
-          {/* Secondary Controls */}
-          <View className="flex-row gap-3">
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryControlButton,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: !isConnected ? 0.5 : pressed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text className="text-lg">🔀</Text>
-              <Text className="text-xs text-muted mt-1 font-semibold">Shuffle</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryControlButton,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-            >
-              <Text className="text-lg">🔁</Text>
-              <Text className="text-xs text-muted mt-1 font-semibold">Repeat</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryControlButton,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-            >
-              <Text className="text-lg">❤️</Text>
-              <Text className="text-xs text-muted mt-1 font-semibold">Like</Text>
-            </Pressable>
-          </View>
-
-          {/* Connect Button */}
-          <Pressable
-            onPress={handleConnect}
-            style={({ pressed }) => [
-              styles.connectButton,
-              {
-                backgroundColor: isConnected ? "#FF3B30" : colors.primary,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text className="text-white font-semibold text-center text-base">
-              {isConnected ? "Desconectar do Spotify" : "Conectar ao Spotify"}
-            </Text>
-          </Pressable>
-
-          {/* Queue */}
-          {queue.length > 0 && (
-            <View className="gap-3">
-              <Text className="text-sm font-bold text-foreground">
-                Próximas Músicas
-              </Text>
-              {queue.map((track, index) => (
-                <View
-                  key={track.id}
-                  style={[
-                    styles.queueItem,
+          {/* Connection Card */}
+          {!isConnected ? (
+            <GlassCard variant="secondary">
+              <View className="gap-4">
+                <View className="items-center gap-2">
+                  <Text className="text-4xl">🎵</Text>
+                  <Text className="text-sm font-semibold text-foreground">
+                    Conectar ao Spotify
+                  </Text>
+                  <Text className="text-xs text-muted text-center">
+                    Controle sua música enquanto pilota
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={handleConnect}
+                  style={({ pressed }) => [
+                    styles.connectButton,
                     {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
+                      backgroundColor: "#1DB954",
+                      opacity: pressed ? 0.85 : 1,
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.queueAlbumArt,
+                  <Text className="text-white font-semibold text-center">
+                    Conectar ao Spotify
+                  </Text>
+                </Pressable>
+              </View>
+            </GlassCard>
+          ) : (
+            <>
+              {/* Now Playing Card */}
+              <GlassCard variant="tertiary">
+                <View className="gap-4">
+                  {/* Album Art */}
+                  <View style={styles.albumArtContainer}>
+                    <View
+                      style={[
+                        styles.albumArt,
+                        {
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.albumArtText}>🎵</Text>
+                    </View>
+                  </View>
+
+                  {/* Song Info */}
+                  <View className="gap-1">
+                    <Text className="text-xs font-semibold text-muted">
+                      TOCANDO AGORA
+                    </Text>
+                    <Text className="text-2xl font-bold text-foreground">
+                      {currentSong.title}
+                    </Text>
+                    <Text className="text-sm text-muted font-semibold">
+                      {currentSong.artist}
+                    </Text>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View className="gap-2">
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          backgroundColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${(currentSong.progress / currentSong.duration) * 100}%`,
+                            backgroundColor: "#1DB954",
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View className="flex-row justify-between">
+                      <Text className="text-xs text-muted font-semibold">
+                        {formatTime(currentSong.progress)}
+                      </Text>
+                      <Text className="text-xs text-muted font-semibold">
+                        {formatTime(currentSong.duration)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Controls */}
+                  <View className="flex-row justify-center gap-6 mt-2">
+                    <Pressable
+                      onPress={() => setQueue((q) => [currentSong, ...q])}
+                      style={({ pressed }) => [
+                        styles.controlButton,
+                        { opacity: pressed ? 0.6 : 1 },
+                      ]}
+                    >
+                      <Text style={styles.controlIcon}>⏮</Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={handlePlayPause}
+                      style={({ pressed }) => [
+                        styles.playButton,
+                        {
+                          backgroundColor: "#1DB954",
+                          opacity: pressed ? 0.85 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.playIcon}>
+                        {isPlaying ? "⏸" : "▶"}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={handleSkip}
+                      style={({ pressed }) => [
+                        styles.controlButton,
+                        { opacity: pressed ? 0.6 : 1 },
+                      ]}
+                    >
+                      <Text style={styles.controlIcon}>⏭</Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Secondary Controls */}
+                  <View className="flex-row justify-between gap-2 mt-4">
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.secondaryControl,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.secondaryIcon}>🔀</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        Shuffle
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.secondaryControl,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.secondaryIcon}>🔁</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        Repeat
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.secondaryControl,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.secondaryIcon}>❤️</Text>
+                      <Text className="text-xs font-semibold text-foreground">
+                        Like
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Disconnect Button */}
+                  <Pressable
+                    onPress={handleDisconnect}
+                    style={({ pressed }) => [
+                      styles.disconnectButton,
                       {
-                        backgroundColor: colors.primary,
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        opacity: pressed ? 0.7 : 1,
                       },
                     ]}
                   >
-                    <Text className="text-lg">🎵</Text>
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-sm font-semibold text-foreground">
-                      {index + 1}. {track.title}
+                    <Text className="text-foreground font-semibold text-center">
+                      Desconectar
                     </Text>
-                    <Text className="text-xs text-muted">{track.artist}</Text>
-                    <Text className="text-xs text-muted mt-1">
-                      {formatTime(track.duration)}
-                    </Text>
-                  </View>
+                  </Pressable>
                 </View>
-              ))}
-            </View>
-          )}
+              </GlassCard>
 
-          {/* Connection Info */}
-          {!isConnected && (
-            <View
-              style={[
-                styles.infoBox,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text className="text-sm font-bold text-foreground mb-2">
-                ℹ️ Como Conectar
-              </Text>
-              <Text className="text-xs text-muted leading-relaxed">
-                1. Certifique-se de que o Spotify está instalado{"\n"}
-                2. Toque em &quot;Conectar ao Spotify&quot;{"\n"}
-                3. Autorize o acesso na tela do Spotify{"\n"}
-                4. Pronto! Agora você pode controlar a música
-              </Text>
-            </View>
+              {/* Queue */}
+              {queue.length > 0 && (
+                <GlassCard>
+                  <View className="gap-3">
+                    <Text className="text-sm font-bold text-foreground">
+                      Próximas Músicas
+                    </Text>
+                    {queue.slice(0, 3).map((song, index) => (
+                      <View
+                        key={song.id}
+                        style={[
+                          styles.queueItem,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.queueNumber,
+                            {
+                              backgroundColor: colors.primary,
+                            },
+                          ]}
+                        >
+                          <Text className="text-white text-xs font-bold">
+                            {index + 1}
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-sm font-semibold text-foreground">
+                            {song.title}
+                          </Text>
+                          <Text className="text-xs text-muted">
+                            {song.artist}
+                          </Text>
+                        </View>
+                        <Text className="text-xs text-muted font-semibold">
+                          {formatTime(song.duration)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </GlassCard>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -357,18 +364,23 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+  connectButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  albumArtContainer: {
+    alignItems: "center",
+  },
   albumArt: {
-    width: 240,
-    height: 240,
-    borderRadius: 24,
-    borderWidth: 1,
+    width: 200,
+    height: 200,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+  },
+  albumArtText: {
+    fontSize: 80,
   },
   progressBar: {
     height: 6,
@@ -380,59 +392,58 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   controlButton: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     justifyContent: "center",
     alignItems: "center",
+  },
+  controlIcon: {
+    fontSize: 24,
   },
   playButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
   },
-  secondaryControlButton: {
+  playIcon: {
+    fontSize: 28,
+    color: "white",
+  },
+  secondaryControl: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
+    borderRadius: 12,
     borderWidth: 1,
-  },
-  connectButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    justifyContent: "center",
     alignItems: "center",
+    gap: 4,
+  },
+  secondaryIcon: {
+    fontSize: 18,
+  },
+  disconnectButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
   },
   queueItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
     gap: 12,
-  },
-  queueAlbumArt: {
-    width: 50,
-    height: 50,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
+    borderWidth: 1,
+  },
+  queueNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-  },
-  infoBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
   },
 });
