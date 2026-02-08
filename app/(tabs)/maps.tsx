@@ -45,7 +45,7 @@ export default function MapsScreen() {
     },
   ]);
 
-  const [favorites, setFavorites] = useState([
+  const [favorites] = useState([
     { id: "home", name: "Casa", icon: "🏠" },
     { id: "work", name: "Trabalho", icon: "💼" },
     { id: "track", name: "Pista", icon: "🏁" },
@@ -82,18 +82,28 @@ export default function MapsScreen() {
   const activeRoute = routes.find((r) => r.active);
 
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+    <ScreenContainer className="p-4">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View className="flex-1 gap-6">
           {/* Header */}
-          <View className="items-center gap-2">
-            <Text className="text-3xl font-bold text-foreground">Navegação</Text>
-            <Text className="text-sm text-muted">
-              {isNavigating ? "🟢 Navegando" : "⚪ Parado"}
-            </Text>
+          <View className="gap-2 pt-2">
+            <Text className="text-4xl font-bold text-foreground">Navegação</Text>
+            <View className="flex-row items-center gap-2">
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isNavigating ? "#34C759" : "#8E8E93",
+                  },
+                ]}
+              />
+              <Text className="text-sm font-semibold text-muted">
+                {isNavigating ? "Navegando" : "Parado"}
+              </Text>
+            </View>
           </View>
 
-          {/* Map Preview */}
+          {/* Map Preview - iOS 26 Style */}
           <View
             style={[
               styles.mapPreview,
@@ -104,8 +114,8 @@ export default function MapsScreen() {
             ]}
           >
             <View className="flex-1 justify-center items-center gap-2">
-              <Text className="text-4xl">🗺️</Text>
-              <Text className="text-sm text-muted text-center">
+              <Text className="text-5xl">🗺️</Text>
+              <Text className="text-sm font-semibold text-muted text-center">
                 Mapbox GL
               </Text>
               {currentLocation && (
@@ -153,7 +163,7 @@ export default function MapsScreen() {
             </View>
           </View>
 
-          {/* Search Bar */}
+          {/* Search Bar - iOS 26 Style */}
           <View
             style={[
               styles.searchBar,
@@ -180,7 +190,14 @@ export default function MapsScreen() {
 
           {/* Active Navigation */}
           {isNavigating && activeRoute && (
-            <View className="bg-primary rounded-lg p-4 gap-3">
+            <View
+              style={[
+                styles.activeNavigation,
+                {
+                  backgroundColor: colors.primary,
+                },
+              ]}
+            >
               <View className="flex-row justify-between items-center">
                 <View>
                   <Text className="text-white font-bold text-lg">
@@ -202,7 +219,7 @@ export default function MapsScreen() {
                   },
                 ]}
               >
-                <Text className="text-white font-semibold text-center">
+                <Text className="text-white font-semibold text-center text-sm">
                   Parar Navegação
                 </Text>
               </Pressable>
@@ -211,7 +228,7 @@ export default function MapsScreen() {
 
           {/* Favorites */}
           <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">
+            <Text className="text-sm font-bold text-foreground">
               Favoritos
             </Text>
             <View className="flex-row gap-3">
@@ -229,7 +246,7 @@ export default function MapsScreen() {
                   ]}
                 >
                   <Text className="text-2xl">{fav.icon}</Text>
-                  <Text className="text-xs text-foreground mt-1 text-center">
+                  <Text className="text-xs text-foreground mt-1 text-center font-semibold">
                     {fav.name}
                   </Text>
                 </Pressable>
@@ -239,7 +256,7 @@ export default function MapsScreen() {
 
           {/* Recent Routes */}
           <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">
+            <Text className="text-sm font-bold text-foreground">
               Rotas Recentes
             </Text>
             {routes.map((route) => (
@@ -271,7 +288,7 @@ export default function MapsScreen() {
                     {route.distance} • {route.time}
                   </Text>
                 </View>
-                <Text className="text-xl">
+                <Text className="text-lg font-semibold">
                   {route.active ? "✓" : "→"}
                 </Text>
               </Pressable>
@@ -288,7 +305,7 @@ export default function MapsScreen() {
               },
             ]}
           >
-            <Text className="text-sm font-semibold text-foreground mb-2">
+            <Text className="text-sm font-bold text-foreground mb-2">
               ℹ️ Sobre Mapas
             </Text>
             <Text className="text-xs text-muted leading-relaxed">
@@ -305,17 +322,22 @@ export default function MapsScreen() {
 }
 
 const styles = StyleSheet.create({
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   mapPreview: {
     height: 300,
-    borderRadius: 16,
-    borderWidth: 2,
+    borderRadius: 20,
+    borderWidth: 1,
     overflow: "hidden",
     position: "relative",
   },
   mapButton: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -323,7 +345,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     height: 48,
   },
@@ -331,15 +353,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
+  activeNavigation: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    gap: 12,
+  },
   stopButton: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   favoriteButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -348,15 +376,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     borderWidth: 1,
     gap: 12,
   },
   infoBox: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
 });

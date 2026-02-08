@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, Pressable, StyleSheet, Image } from "react-native";
+import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
 import { useState, useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -101,18 +101,28 @@ export default function SpotifyScreen() {
     : 0;
 
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+    <ScreenContainer className="p-4">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View className="flex-1 gap-6">
           {/* Header */}
-          <View className="items-center gap-2">
-            <Text className="text-3xl font-bold text-foreground">Spotify</Text>
-            <Text className="text-sm text-muted">
-              {isConnected ? "🟢 Conectado" : "⚪ Desconectado"}
-            </Text>
+          <View className="gap-2 pt-2">
+            <Text className="text-4xl font-bold text-foreground">Spotify</Text>
+            <View className="flex-row items-center gap-2">
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isConnected ? "#34C759" : "#8E8E93",
+                  },
+                ]}
+              />
+              <Text className="text-sm font-semibold text-muted">
+                {isConnected ? "Conectado" : "Desconectado"}
+              </Text>
+            </View>
           </View>
 
-          {/* Album Art */}
+          {/* Album Art - iOS 26 Style com Sombra */}
           <View className="items-center">
             <View
               style={[
@@ -138,7 +148,7 @@ export default function SpotifyScreen() {
             <Text className="text-sm text-muted">{currentTrack.album}</Text>
           </View>
 
-          {/* Progress Bar */}
+          {/* Progress Bar Moderna */}
           <View className="gap-2">
             <View
               style={[
@@ -159,16 +169,16 @@ export default function SpotifyScreen() {
               />
             </View>
             <View className="flex-row justify-between">
-              <Text className="text-xs text-muted">
+              <Text className="text-xs text-muted font-semibold">
                 {formatTime(currentTrack.progress)}
               </Text>
-              <Text className="text-xs text-muted">
+              <Text className="text-xs text-muted font-semibold">
                 {formatTime(currentTrack.duration)}
               </Text>
             </View>
           </View>
 
-          {/* Playback Controls */}
+          {/* Playback Controls - iOS 26 Style */}
           <View className="flex-row justify-center items-center gap-8">
             <Pressable
               style={({ pressed }) => [
@@ -188,7 +198,7 @@ export default function SpotifyScreen() {
                 styles.playButton,
                 {
                   backgroundColor: colors.primary,
-                  opacity: !isConnected ? 0.5 : pressed ? 0.8 : 1,
+                  opacity: !isConnected ? 0.5 : pressed ? 0.85 : 1,
                 },
               ]}
             >
@@ -212,23 +222,24 @@ export default function SpotifyScreen() {
           </View>
 
           {/* Secondary Controls */}
-          <View className="flex-row justify-around gap-4">
+          <View className="flex-row gap-3">
             <Pressable
               style={({ pressed }) => [
-                styles.playButton,
+                styles.secondaryControlButton,
                 {
-                  backgroundColor: colors.primary,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
                   opacity: !isConnected ? 0.5 : pressed ? 0.8 : 1,
                 },
               ]}
             >
               <Text className="text-lg">🔀</Text>
-              <Text className="text-xs text-muted mt-1">Shuffle</Text>
+              <Text className="text-xs text-muted mt-1 font-semibold">Shuffle</Text>
             </Pressable>
 
             <Pressable
               style={({ pressed }) => [
-                styles.secondaryButton,
+                styles.secondaryControlButton,
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
@@ -237,12 +248,12 @@ export default function SpotifyScreen() {
               ]}
             >
               <Text className="text-lg">🔁</Text>
-              <Text className="text-xs text-muted mt-1">Repeat</Text>
+              <Text className="text-xs text-muted mt-1 font-semibold">Repeat</Text>
             </Pressable>
 
             <Pressable
               style={({ pressed }) => [
-                styles.secondaryButton,
+                styles.secondaryControlButton,
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
@@ -251,7 +262,7 @@ export default function SpotifyScreen() {
               ]}
             >
               <Text className="text-lg">❤️</Text>
-              <Text className="text-xs text-muted mt-1">Like</Text>
+              <Text className="text-xs text-muted mt-1 font-semibold">Like</Text>
             </Pressable>
           </View>
 
@@ -261,12 +272,12 @@ export default function SpotifyScreen() {
             style={({ pressed }) => [
               styles.connectButton,
               {
-                backgroundColor: isConnected ? "#EF4444" : colors.primary,
-                opacity: pressed ? 0.8 : 1,
+                backgroundColor: isConnected ? "#FF3B30" : colors.primary,
+                opacity: pressed ? 0.85 : 1,
               },
             ]}
           >
-            <Text className="text-white font-semibold text-center">
+            <Text className="text-white font-semibold text-center text-base">
               {isConnected ? "Desconectar do Spotify" : "Conectar ao Spotify"}
             </Text>
           </Pressable>
@@ -274,13 +285,19 @@ export default function SpotifyScreen() {
           {/* Queue */}
           {queue.length > 0 && (
             <View className="gap-3">
-              <Text className="text-sm font-semibold text-foreground">
+              <Text className="text-sm font-bold text-foreground">
                 Próximas Músicas
               </Text>
               {queue.map((track, index) => (
                 <View
                   key={track.id}
-                  className="bg-surface rounded-lg p-4 border border-border flex-row gap-3"
+                  style={[
+                    styles.queueItem,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
                 >
                   <View
                     style={[
@@ -290,7 +307,7 @@ export default function SpotifyScreen() {
                       },
                     ]}
                   >
-                    <Text className="text-xl">🎵</Text>
+                    <Text className="text-lg">🎵</Text>
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-semibold text-foreground">
@@ -308,13 +325,21 @@ export default function SpotifyScreen() {
 
           {/* Connection Info */}
           {!isConnected && (
-            <View className="bg-surface rounded-lg p-4 border border-border">
-              <Text className="text-sm font-semibold text-foreground mb-2">
+            <View
+              style={[
+                styles.infoBox,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text className="text-sm font-bold text-foreground mb-2">
                 ℹ️ Como Conectar
               </Text>
               <Text className="text-xs text-muted leading-relaxed">
-                1. Certifique-se de que o Spotify está instalado no seu iPhone{"\n"}
-                2. Toque em "Conectar ao Spotify"{"\n"}
+                1. Certifique-se de que o Spotify está instalado{"\n"}
+                2. Toque em &quot;Conectar ao Spotify&quot;{"\n"}
                 3. Autorize o acesso na tela do Spotify{"\n"}
                 4. Pronto! Agora você pode controlar a música
               </Text>
@@ -327,17 +352,22 @@ export default function SpotifyScreen() {
 }
 
 const styles = StyleSheet.create({
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   albumArt: {
     width: 240,
     height: 240,
-    borderRadius: 20,
-    borderWidth: 2,
+    borderRadius: 24,
+    borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 8,
   },
   progressBar: {
@@ -361,12 +391,17 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  secondaryButton: {
+  secondaryControlButton: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -374,15 +409,30 @@ const styles = StyleSheet.create({
   connectButton: {
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
+  },
+  queueItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
   },
   queueAlbumArt: {
     width: 50,
     height: 50,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  infoBox: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
   },
 });

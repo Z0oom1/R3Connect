@@ -1,14 +1,37 @@
 /** @type {const} */
 const themeColors = {
-  primary: { light: '#0a7ea4', dark: '#0a7ea4' },
-  background: { light: '#ffffff', dark: '#151718' },
-  surface: { light: '#f5f5f5', dark: '#1e2022' },
-  foreground: { light: '#11181C', dark: '#ECEDEE' },
-  muted: { light: '#687076', dark: '#9BA1A6' },
-  border: { light: '#E5E7EB', dark: '#334155' },
-  success: { light: '#22C55E', dark: '#4ADE80' },
-  warning: { light: '#F59E0B', dark: '#FBBF24' },
-  error: { light: '#EF4444', dark: '#F87171' },
+  // Primária: Azul Yamaha moderno (iOS 26 style)
+  primary: { light: '#0066CC', dark: '#0A84FF' },
+  
+  // Fundo: Branco puro (light) e preto profundo (dark)
+  background: { light: '#FFFFFF', dark: '#000000' },
+  
+  // Superfícies: Cards com efeito glassmorphism
+  surface: { light: '#F8F9FA', dark: '#1C1C1E' },
+  
+  // Texto primário
+  foreground: { light: '#000000', dark: '#FFFFFF' },
+  
+  // Texto secundário (muted)
+  muted: { light: '#8E8E93', dark: '#A1A1A6' },
+  
+  // Bordas e separadores
+  border: { light: '#E5E5EA', dark: '#38383A' },
+  
+  // Estados de sucesso
+  success: { light: '#34C759', dark: '#32D74B' },
+  
+  // Estados de aviso
+  warning: { light: '#FF9500', dark: '#FFB340' },
+  
+  // Estados de erro
+  error: { light: '#FF3B30', dark: '#FF453A' },
+  
+  // Cores adicionais para design iOS 26
+  accent: { light: '#FF6B35', dark: '#FF9500' },
+  
+  // Fundo secundário para elementos flutuantes
+  floatingBackground: { light: 'rgba(255, 255, 255, 0.8)', dark: 'rgba(28, 28, 30, 0.8)' },
 };
 
 module.exports = { themeColors };

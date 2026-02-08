@@ -57,21 +57,21 @@ export default function TelemetryScreen() {
 
   const getTemperatureStatus = () => {
     if (telemetry.temperature < 50) return { text: "Frio", color: "#0066CC" };
-    if (telemetry.temperature < 80) return { text: "Normal", color: "#22C55E" };
-    if (telemetry.temperature < 90) return { text: "Quente", color: "#F59E0B" };
-    return { text: "Crítico", color: "#EF4444" };
+    if (telemetry.temperature < 80) return { text: "Normal", color: "#34C759" };
+    if (telemetry.temperature < 90) return { text: "Quente", color: "#FF9500" };
+    return { text: "Crítico", color: "#FF3B30" };
   };
 
   const getFuelStatus = () => {
-    if (telemetry.fuel > 50) return { text: "Cheio", color: "#22C55E" };
-    if (telemetry.fuel > 25) return { text: "Médio", color: "#F59E0B" };
-    return { text: "Baixo", color: "#EF4444" };
+    if (telemetry.fuel > 50) return { text: "Cheio", color: "#34C759" };
+    if (telemetry.fuel > 25) return { text: "Médio", color: "#FF9500" };
+    return { text: "Baixo", color: "#FF3B30" };
   };
 
   const getBatteryStatus = () => {
-    if (telemetry.battery > 12) return { text: "OK", color: "#22C55E" };
-    if (telemetry.battery > 11.5) return { text: "Baixa", color: "#F59E0B" };
-    return { text: "Crítica", color: "#EF4444" };
+    if (telemetry.battery > 12) return { text: "OK", color: "#34C759" };
+    if (telemetry.battery > 11.5) return { text: "Baixa", color: "#FF9500" };
+    return { text: "Crítica", color: "#FF3B30" };
   };
 
   const tempStatus = getTemperatureStatus();
@@ -79,15 +79,25 @@ export default function TelemetryScreen() {
   const batteryStatus = getBatteryStatus();
 
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+    <ScreenContainer className="p-4">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View className="flex-1 gap-6">
           {/* Header */}
-          <View className="items-center gap-2">
-            <Text className="text-3xl font-bold text-foreground">Telemetria</Text>
-            <Text className="text-sm text-muted">
-              {isConnected ? "🟢 Conectado" : "⚪ Desconectado"}
-            </Text>
+          <View className="gap-2 pt-2">
+            <Text className="text-4xl font-bold text-foreground">Telemetria</Text>
+            <View className="flex-row items-center gap-2">
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isConnected ? "#34C759" : "#8E8E93",
+                  },
+                ]}
+              />
+              <Text className="text-sm font-semibold text-muted">
+                {isConnected ? "Conectado" : "Desconectado"}
+              </Text>
+            </View>
           </View>
 
           {/* Connect Button */}
@@ -96,12 +106,12 @@ export default function TelemetryScreen() {
             style={({ pressed }) => [
               styles.connectButton,
               {
-                backgroundColor: isConnected ? "#EF4444" : colors.primary,
-                opacity: pressed ? 0.8 : 1,
+                backgroundColor: isConnected ? "#FF3B30" : colors.primary,
+                opacity: pressed ? 0.85 : 1,
               },
             ]}
           >
-            <Text className="text-white font-semibold text-center">
+            <Text className="text-white font-semibold text-center text-base">
               {isConnected ? "Desconectar da Moto" : "Conectar à Moto (Bluetooth)"}
             </Text>
           </Pressable>
@@ -118,7 +128,7 @@ export default function TelemetryScreen() {
           >
             <View className="flex-row justify-between items-start mb-3">
               <View>
-                <Text className="text-sm text-muted mb-1">Temperatura do Motor</Text>
+                <Text className="text-xs font-semibold text-muted mb-1">TEMPERATURA DO MOTOR</Text>
                 <Text className="text-3xl font-bold text-foreground">
                   {Math.round(telemetry.temperature)}°C
                 </Text>
@@ -168,12 +178,12 @@ export default function TelemetryScreen() {
           >
             <View className="flex-row justify-between items-start mb-3">
               <View>
-                <Text className="text-sm text-muted mb-1">RPM</Text>
+                <Text className="text-xs font-semibold text-muted mb-1">RPM</Text>
                 <Text className="text-3xl font-bold text-foreground">
                   {Math.round(telemetry.rpm / 100) * 100}
                 </Text>
               </View>
-              <Text className="text-xs text-muted">/ 15000</Text>
+              <Text className="text-xs text-muted font-semibold">/ 15000</Text>
             </View>
             <View
               style={[
@@ -207,7 +217,7 @@ export default function TelemetryScreen() {
           >
             <View className="flex-row justify-between items-start mb-3">
               <View>
-                <Text className="text-sm text-muted mb-1">Combustível</Text>
+                <Text className="text-xs font-semibold text-muted mb-1">COMBUSTÍVEL</Text>
                 <Text className="text-3xl font-bold text-foreground">
                   {Math.round(telemetry.fuel)}%
                 </Text>
@@ -243,7 +253,7 @@ export default function TelemetryScreen() {
                 ]}
               />
             </View>
-            <Text className="text-xs text-muted mt-2">
+            <Text className="text-xs text-muted mt-2 font-semibold">
               ~{Math.round(telemetry.fuel * 1.5)} km de autonomia
             </Text>
           </View>
@@ -260,7 +270,7 @@ export default function TelemetryScreen() {
                 },
               ]}
             >
-              <Text className="text-sm text-muted mb-2">Bateria</Text>
+              <Text className="text-xs font-semibold text-muted mb-2">BATERIA</Text>
               <Text className="text-2xl font-bold text-foreground mb-2">
                 {telemetry.battery.toFixed(1)}V
               </Text>
@@ -288,7 +298,7 @@ export default function TelemetryScreen() {
                 },
               ]}
             >
-              <Text className="text-sm text-muted mb-2">Pressão Pneu</Text>
+              <Text className="text-xs font-semibold text-muted mb-2">PRESSÃO PNEU</Text>
               <Text className="text-2xl font-bold text-foreground mb-2">
                 {telemetry.pressure.toFixed(1)} bar
               </Text>
@@ -315,12 +325,14 @@ export default function TelemetryScreen() {
               },
             ]}
           >
-            <Text className="text-sm font-semibold text-foreground mb-2">
+            <Text className="text-sm font-bold text-foreground mb-2">
               ℹ️ Sobre Telemetria
             </Text>
             <Text className="text-xs text-muted leading-relaxed">
-              • Dados em tempo real via Bluetooth{"\n"}• Histórico de 24 horas{"\n"}•
-              Alertas automáticos{"\n"}• Requer moto com CCU Yamaha
+              • Dados em tempo real via Bluetooth{"\n"}
+              • Histórico de 24 horas{"\n"}
+              • Alertas automáticos{"\n"}
+              • Requer moto com CCU Yamaha
             </Text>
           </View>
         </View>
@@ -330,17 +342,22 @@ export default function TelemetryScreen() {
 }
 
 const styles = StyleSheet.create({
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   connectButton: {
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   telemetryCard: {
     paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
   progressBar: {
@@ -353,14 +370,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
   },
   infoBox: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     borderWidth: 1,
   },
 });
