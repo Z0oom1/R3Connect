@@ -1,7 +1,10 @@
-import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
+import { ScrollView, Text, View, StyleSheet } from "react-native";
 import { useState, useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useBluetooth } from "@/hooks/use-bluetooth";
+import { BluetoothConnectionAnimation } from "@/components/bluetooth-connection-animation";
+import { GlassCard } from "@/components/glass-card";
 
 interface TelemetryData {
   temperature: number;
@@ -13,7 +16,7 @@ interface TelemetryData {
 
 export default function TelemetryScreen() {
   const colors = useColors();
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected, isConnecting, connect, disconnect } = useBluetooth();
   const [telemetry, setTelemetry] = useState<TelemetryData>({
     temperature: 68,
     rpm: 2500,
@@ -22,38 +25,34 @@ export default function TelemetryScreen() {
     pressure: 2.0,
   });
 
-  // Simular variação de dados
+  // Simular variação de dados em tempo real quando conectado
   useEffect(() => {
     if (!isConnected) return;
 
     const interval = setInterval(() => {
       setTelemetry((prev) => ({
         temperature: Math.min(
-          Math.max(prev.temperature + (Math.random() - 0.5) * 4, 50),
+          Math.max(prev.temperature + (Math.random() - 0.5) * 3, 50),
           95
         ),
         rpm: Math.max(
-          Math.min(prev.rpm + (Math.random() - 0.5) * 500, 15000),
+          Math.min(prev.rpm + (Math.random() - 0.5) * 400, 15000),
           800
         ),
-        fuel: Math.max(Math.min(prev.fuel + (Math.random() - 0.5) * 0.5, 100), 0),
+        fuel: Math.max(Math.min(prev.fuel + (Math.random() - 0.5) * 0.3, 100), 0),
         battery: Math.max(
-          Math.min(prev.battery + (Math.random() - 0.5) * 0.1, 14),
+          Math.min(prev.battery + (Math.random() - 0.5) * 0.05, 14),
           11
         ),
         pressure: Math.max(
-          Math.min(prev.pressure + (Math.random() - 0.5) * 0.05, 2.5),
+          Math.min(prev.pressure + (Math.random() - 0.5) * 0.03, 2.5),
           1.5
         ),
       }));
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [isConnected]);
-
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
-  };
 
   const getTemperatureStatus = () => {
     if (telemetry.temperature < 50) return { text: "Frio", color: "#0066CC" };
@@ -83,258 +82,238 @@ export default function TelemetryScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View className="flex-1 gap-6">
           {/* Header */}
-          <View className="gap-2 pt-2">
+          <View className="gap-1 pt-2">
             <Text className="text-4xl font-bold text-foreground">Telemetria</Text>
-            <View className="flex-row items-center gap-2">
-              <View
-                style={[
-                  styles.statusDot,
-                  {
-                    backgroundColor: isConnected ? "#34C759" : "#8E8E93",
-                  },
-                ]}
-              />
-              <Text className="text-sm font-semibold text-muted">
-                {isConnected ? "Conectado" : "Desconectado"}
-              </Text>
-            </View>
+            <Text className="text-sm text-muted">Dados em Tempo Real da Moto</Text>
           </View>
 
-          {/* Connect Button */}
-          <Pressable
-            onPress={handleConnect}
-            style={({ pressed }) => [
-              styles.connectButton,
-              {
-                backgroundColor: isConnected ? "#FF3B30" : colors.primary,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Text className="text-white font-semibold text-center text-base">
-              {isConnected ? "Desconectar da Moto" : "Conectar à Moto (Bluetooth)"}
-            </Text>
-          </Pressable>
+          {/* Bluetooth Connection Animation */}
+          <GlassCard variant="secondary">
+            <BluetoothConnectionAnimation
+              isConnecting={isConnecting}
+              isConnected={isConnected}
+              onConnect={connect}
+              onDisconnect={disconnect}
+            />
+          </GlassCard>
+
+          {/* Status Indicator */}
+          {isConnected && (
+            <GlassCard variant="tertiary">
+              <View className="flex-row items-center gap-2">
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor: "#34C759",
+                    },
+                  ]}
+                />
+                <Text className="text-sm font-semibold text-foreground">
+                  Dados atualizando em tempo real
+                </Text>
+              </View>
+            </GlassCard>
+          )}
 
           {/* Temperature Card */}
-          <View
-            style={[
-              styles.telemetryCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View className="flex-row justify-between items-start mb-3">
-              <View>
-                <Text className="text-xs font-semibold text-muted mb-1">TEMPERATURA DO MOTOR</Text>
-                <Text className="text-3xl font-bold text-foreground">
-                  {Math.round(telemetry.temperature)}°C
-                </Text>
+          {isConnected && (
+            <GlassCard>
+              <View className="gap-3">
+                <View className="flex-row justify-between items-start">
+                  <View>
+                    <Text className="text-xs font-semibold text-muted mb-1">
+                      TEMPERATURA DO MOTOR
+                    </Text>
+                    <Text className="text-4xl font-bold text-foreground">
+                      {Math.round(telemetry.temperature)}°C
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: tempStatus.color,
+                      },
+                    ]}
+                  >
+                    <Text className="text-white text-xs font-semibold">
+                      {tempStatus.text}
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${(telemetry.temperature / 100) * 100}%`,
+                        backgroundColor: tempStatus.color,
+                      },
+                    ]}
+                  />
+                </View>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: tempStatus.color,
-                  },
-                ]}
-              >
-                <Text className="text-white text-xs font-semibold">
-                  {tempStatus.text}
-                </Text>
-              </View>
-            </View>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${(telemetry.temperature / 100) * 100}%`,
-                    backgroundColor: tempStatus.color,
-                  },
-                ]}
-              />
-            </View>
-          </View>
+            </GlassCard>
+          )}
 
           {/* RPM Card */}
-          <View
-            style={[
-              styles.telemetryCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View className="flex-row justify-between items-start mb-3">
-              <View>
-                <Text className="text-xs font-semibold text-muted mb-1">RPM</Text>
-                <Text className="text-3xl font-bold text-foreground">
-                  {Math.round(telemetry.rpm / 100) * 100}
-                </Text>
+          {isConnected && (
+            <GlassCard>
+              <View className="gap-3">
+                <View className="flex-row justify-between items-start">
+                  <View>
+                    <Text className="text-xs font-semibold text-muted mb-1">RPM</Text>
+                    <Text className="text-4xl font-bold text-foreground">
+                      {Math.round(telemetry.rpm / 100) * 100}
+                    </Text>
+                  </View>
+                  <Text className="text-xs font-semibold text-muted">/ 15000</Text>
+                </View>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${(telemetry.rpm / 15000) * 100}%`,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
               </View>
-              <Text className="text-xs text-muted font-semibold">/ 15000</Text>
-            </View>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${(telemetry.rpm / 15000) * 100}%`,
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              />
-            </View>
-          </View>
+            </GlassCard>
+          )}
 
           {/* Fuel Card */}
-          <View
-            style={[
-              styles.telemetryCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View className="flex-row justify-between items-start mb-3">
-              <View>
-                <Text className="text-xs font-semibold text-muted mb-1">COMBUSTÍVEL</Text>
-                <Text className="text-3xl font-bold text-foreground">
-                  {Math.round(telemetry.fuel)}%
+          {isConnected && (
+            <GlassCard>
+              <View className="gap-3">
+                <View className="flex-row justify-between items-start">
+                  <View>
+                    <Text className="text-xs font-semibold text-muted mb-1">
+                      COMBUSTÍVEL
+                    </Text>
+                    <Text className="text-4xl font-bold text-foreground">
+                      {Math.round(telemetry.fuel)}%
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: fuelStatus.color,
+                      },
+                    ]}
+                  >
+                    <Text className="text-white text-xs font-semibold">
+                      {fuelStatus.text}
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${telemetry.fuel}%`,
+                        backgroundColor: fuelStatus.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text className="text-xs text-muted font-semibold">
+                  ~{Math.round(telemetry.fuel * 1.5)} km de autonomia
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: fuelStatus.color,
-                  },
-                ]}
-              >
-                <Text className="text-white text-xs font-semibold">
-                  {fuelStatus.text}
-                </Text>
-              </View>
-            </View>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  backgroundColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${telemetry.fuel}%`,
-                    backgroundColor: fuelStatus.color,
-                  },
-                ]}
-              />
-            </View>
-            <Text className="text-xs text-muted mt-2 font-semibold">
-              ~{Math.round(telemetry.fuel * 1.5)} km de autonomia
-            </Text>
-          </View>
+            </GlassCard>
+          )}
 
           {/* Battery & Pressure */}
-          <View className="flex-row gap-3">
-            <View
-              className="flex-1"
-              style={[
-                styles.telemetryCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text className="text-xs font-semibold text-muted mb-2">BATERIA</Text>
-              <Text className="text-2xl font-bold text-foreground mb-2">
-                {telemetry.battery.toFixed(1)}V
-              </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: batteryStatus.color,
-                  },
-                ]}
-              >
-                <Text className="text-white text-xs font-semibold">
-                  {batteryStatus.text}
-                </Text>
+          {isConnected && (
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <GlassCard>
+                  <View className="gap-2">
+                    <Text className="text-xs font-semibold text-muted">BATERIA</Text>
+                    <Text className="text-3xl font-bold text-foreground">
+                      {telemetry.battery.toFixed(1)}V
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor: batteryStatus.color,
+                        },
+                      ]}
+                    >
+                      <Text className="text-white text-xs font-semibold">
+                        {batteryStatus.text}
+                      </Text>
+                    </View>
+                  </View>
+                </GlassCard>
               </View>
-            </View>
 
-            <View
-              className="flex-1"
-              style={[
-                styles.telemetryCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text className="text-xs font-semibold text-muted mb-2">PRESSÃO PNEU</Text>
-              <Text className="text-2xl font-bold text-foreground mb-2">
-                {telemetry.pressure.toFixed(1)} bar
-              </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text className="text-white text-xs font-semibold">OK</Text>
+              <View className="flex-1">
+                <GlassCard>
+                  <View className="gap-2">
+                    <Text className="text-xs font-semibold text-muted">
+                      PRESSÃO PNEU
+                    </Text>
+                    <Text className="text-3xl font-bold text-foreground">
+                      {telemetry.pressure.toFixed(1)} bar
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text className="text-white text-xs font-semibold">OK</Text>
+                    </View>
+                  </View>
+                </GlassCard>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Info Box */}
-          <View
-            style={[
-              styles.infoBox,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text className="text-sm font-bold text-foreground mb-2">
-              ℹ️ Sobre Telemetria
-            </Text>
-            <Text className="text-xs text-muted leading-relaxed">
-              • Dados em tempo real via Bluetooth{"\n"}
-              • Histórico de 24 horas{"\n"}
-              • Alertas automáticos{"\n"}
-              • Requer moto com CCU Yamaha
-            </Text>
-          </View>
+          {!isConnected && (
+            <GlassCard variant="secondary">
+              <View className="gap-2">
+                <Text className="text-sm font-bold text-foreground">
+                  ℹ️ Conecte à Moto
+                </Text>
+                <Text className="text-xs text-muted leading-relaxed">
+                  Toque no botão acima para conectar via Bluetooth e visualizar os dados em tempo real da sua Yamaha R3.
+                </Text>
+              </View>
+            </GlassCard>
+          )}
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -346,19 +325,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  connectButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  telemetryCard: {
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
   },
   progressBar: {
     height: 8,
@@ -373,11 +339,5 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-  },
-  infoBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
   },
 });
