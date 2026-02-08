@@ -87,6 +87,14 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     [
+      "react-native-ble-plx",
+      {
+        "isBackgroundEnabled": true,
+        "modes": ["central"],
+        "bluetoothAlwaysPermission": "O R3 Connect precisa de acesso ao Bluetooth para se conectar à sua moto."
+      }
+    ],
+    [
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",

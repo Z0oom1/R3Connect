@@ -4,7 +4,17 @@ import { BleManager, Device, State } from "react-native-ble-plx";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BLUETOOTH_STORAGE_KEY = "@r3connect/bluetooth";
-const manager = new BleManager();
+// O BleManager deve ser instanciado apenas em dispositivos nativos (iOS/Android)
+// e preferencialmente como um singleton para evitar múltiplas instâncias.
+let manager: BleManager | null = null;
+
+try {
+  if (Platform.OS !== "web") {
+    manager = new BleManager();
+  }
+} catch (e) {
+  console.error("Falha ao inicializar BleManager:", e);
+}
 
 export function useBluetooth() {
   const [isConnected, setIsConnected] = useState(false);
@@ -28,6 +38,11 @@ export function useBluetooth() {
   useEffect(() => {
     requestPermissions();
     
+    if (!manager) {
+      setIsLoading(false);
+      return;
+    }
+
     const subscription = manager.onStateChange((state) => {
       if (state === State.PoweredOn) {
         setIsLoading(false);
@@ -38,6 +53,11 @@ export function useBluetooth() {
   }, []);
 
   const connect = useCallback(async (device?: Device) => {
+    if (!manager) {
+      console.warn("Bluetooth não disponível nesta plataforma");
+      return;
+    }
+
     setIsConnecting(true);
     
     try {
@@ -58,7 +78,7 @@ export function useBluetooth() {
           }
 
           if (scannedDevice?.name?.includes("Yamaha") || scannedDevice?.name?.includes("R3")) {
-            manager.stopDeviceScan();
+            manager?.stopDeviceScan();
             const connected = await scannedDevice.connect();
             await connected.discoverAllServicesAndCharacteristics();
             connectedDevice.current = connected;
@@ -70,7 +90,7 @@ export function useBluetooth() {
 
         // Timeout de scan (10 segundos)
         setTimeout(() => {
-          manager.stopDeviceScan();
+          manager?.stopDeviceScan();
           if (!isConnected) setIsConnecting(false);
         }, 10000);
       }
