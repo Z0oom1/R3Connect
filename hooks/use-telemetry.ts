@@ -16,7 +16,9 @@ const MAX_HISTORY = 1440; // 24 horas com leitura a cada minuto
 export function useTelemetry() {
   const [telemetryHistory, setTelemetryHistory] = useState<TelemetrySnapshot[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentData, setCurrentData] = useState<TelemetrySnapshot | null>(null);
 
   // Carregar histórico de telemetria
   useEffect(() => {
@@ -36,15 +38,31 @@ export function useTelemetry() {
     loadTelemetry();
   }, []);
 
-  // Adicionar snapshot de telemetria
-  const addSnapshot = useCallback(
-    async (snapshot: Omit<TelemetrySnapshot, "timestamp">) => {
-      const newSnapshot: TelemetrySnapshot = {
-        ...snapshot,
+  // Simular dados de telemetria em tempo real
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const interval = setInterval(() => {
+      const snapshot: TelemetrySnapshot = {
         timestamp: Date.now(),
+        temperature: Math.random() * 40 + 50,
+        rpm: Math.random() * 15000,
+        fuel: Math.random() * 100,
+        battery: Math.random() * 3 + 11,
+        pressure: Math.random() * 1 + 1.5,
       };
 
-      let updatedHistory = [...telemetryHistory, newSnapshot];
+      setCurrentData(snapshot);
+      addSnapshot(snapshot);
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isConnected]);
+
+  // Adicionar snapshot de telemetria
+  const addSnapshot = useCallback(
+    async (snapshot: TelemetrySnapshot) => {
+      let updatedHistory = [...telemetryHistory, snapshot];
 
       // Manter apenas os últimos MAX_HISTORY snapshots
       if (updatedHistory.length > MAX_HISTORY) {
@@ -61,14 +79,23 @@ export function useTelemetry() {
     [telemetryHistory]
   );
 
-  // Conectar ao dispositivo (simulado)
-  const connect = useCallback(() => {
-    setIsConnected(true);
+  // Conectar ao dispositivo (com animação)
+  const connect = useCallback(async () => {
+    setIsConnecting(true);
+
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        setIsConnected(true);
+        setIsConnecting(false);
+        resolve();
+      }, 2000);
+    });
   }, []);
 
   // Desconectar
   const disconnect = useCallback(() => {
     setIsConnected(false);
+    setCurrentData(null);
   }, []);
 
   // Obter histórico filtrado por período
@@ -93,6 +120,7 @@ export function useTelemetry() {
       const temperatures = history.map((s) => s.temperature);
       const rpms = history.map((s) => s.rpm);
       const fuels = history.map((s) => s.fuel);
+      const batteries = history.map((s) => s.battery);
 
       return {
         avgTemperature: temperatures.reduce((a, b) => a + b, 0) / temperatures.length,
@@ -100,8 +128,13 @@ export function useTelemetry() {
         minTemperature: Math.min(...temperatures),
         avgRpm: rpms.reduce((a, b) => a + b, 0) / rpms.length,
         maxRpm: Math.max(...rpms),
+        minRpm: Math.min(...rpms),
         avgFuel: fuels.reduce((a, b) => a + b, 0) / fuels.length,
         minFuel: Math.min(...fuels),
+        maxFuel: Math.max(...fuels),
+        avgBattery: batteries.reduce((a, b) => a + b, 0) / batteries.length,
+        minBattery: Math.min(...batteries),
+        maxBattery: Math.max(...batteries),
       };
     },
     [getHistoryByPeriod]
@@ -119,8 +152,10 @@ export function useTelemetry() {
 
   return {
     isConnected,
+    isConnecting,
     isLoading,
     telemetryHistory,
+    currentData,
     addSnapshot,
     connect,
     disconnect,

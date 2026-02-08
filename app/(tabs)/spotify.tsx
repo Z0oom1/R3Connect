@@ -1,81 +1,35 @@
-import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
-import { useState, useEffect, useRef } from "react";
+import { ScrollView, Text, View, Pressable, StyleSheet } from "react-native";
+import { useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useSpotify } from "@/hooks/use-spotify";
 import { GlassCard } from "@/components/glass-card";
-
-interface Song {
-  id: string;
-  title: string;
-  artist: string;
-  duration: number;
-  progress: number;
-}
 
 export default function SpotifyScreen() {
   const colors = useColors();
-  const [isConnected, setIsConnected] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSong, setCurrentSong] = useState<Song>({
-    id: "1",
-    title: "Midnight City",
-    artist: "M83",
-    duration: 244,
-    progress: 120,
-  });
+  const {
+    isConnected,
+    isPlaying,
+    currentTrack,
+    queue,
+    connect,
+    disconnect,
+    togglePlayPause,
+    skipToNext,
+  } = useSpotify();
 
-  const [queue, setQueue] = useState<Song[]>([
-    { id: "2", title: "Electric Feel", artist: "MGMT", duration: 236, progress: 0 },
-    { id: "3", title: "Take On Me", artist: "a-ha", duration: 225, progress: 0 },
-    { id: "4", title: "Synthwave Dreams", artist: "The Midnight", duration: 256, progress: 0 },
-  ]);
-
-  const progressAnim = useRef(new Animated.Value(0)).current;
-
-  // Simular progresso da música
+  // Atualizar progresso da música
   useEffect(() => {
-    if (!isPlaying || !isConnected) return;
+    if (!isPlaying || !isConnected || !currentTrack) return;
 
     const interval = setInterval(() => {
-      setCurrentSong((prev) => {
-        const newProgress = prev.progress + 1;
-        if (newProgress >= prev.duration) {
-          // Passar para próxima música
-          if (queue.length > 0) {
-            setQueue((q) => q.slice(1));
-            setCurrentSong(queue[0] || prev);
-            return queue[0] || prev;
-          }
-          setIsPlaying(false);
-          return prev;
-        }
-        return { ...prev, progress: newProgress };
-      });
+      if (currentTrack.progress >= currentTrack.duration) {
+        skipToNext();
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isConnected, queue]);
-
-  const handleConnect = async () => {
-    setIsConnected(true);
-    setIsPlaying(true);
-  };
-
-  const handleDisconnect = () => {
-    setIsConnected(false);
-    setIsPlaying(false);
-  };
-
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSkip = () => {
-    if (queue.length > 0) {
-      setQueue((q) => q.slice(1));
-      setCurrentSong(queue[0] || currentSong);
-    }
-  };
+  }, [isPlaying, isConnected, currentTrack, skipToNext]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -119,7 +73,7 @@ export default function SpotifyScreen() {
                   </Text>
                 </View>
                 <Pressable
-                  onPress={handleConnect}
+                  onPress={connect}
                   style={({ pressed }) => [
                     styles.connectButton,
                     {
@@ -159,10 +113,10 @@ export default function SpotifyScreen() {
                       TOCANDO AGORA
                     </Text>
                     <Text className="text-2xl font-bold text-foreground">
-                      {currentSong.title}
+                      {currentTrack?.title || "Nenhuma música"}
                     </Text>
                     <Text className="text-sm text-muted font-semibold">
-                      {currentSong.artist}
+                      {currentTrack?.artist || "Desconectado"}
                     </Text>
                   </View>
 
@@ -180,7 +134,7 @@ export default function SpotifyScreen() {
                         style={[
                           styles.progressFill,
                           {
-                            width: `${(currentSong.progress / currentSong.duration) * 100}%`,
+                            width: `${currentTrack ? (currentTrack.progress / currentTrack.duration) * 100 : 0}%`,
                             backgroundColor: "#1DB954",
                           },
                         ]}
@@ -188,10 +142,10 @@ export default function SpotifyScreen() {
                     </View>
                     <View className="flex-row justify-between">
                       <Text className="text-xs text-muted font-semibold">
-                        {formatTime(currentSong.progress)}
+                        {currentTrack ? formatTime(currentTrack.progress) : "0:00"}
                       </Text>
                       <Text className="text-xs text-muted font-semibold">
-                        {formatTime(currentSong.duration)}
+                        {currentTrack ? formatTime(currentTrack.duration) : "0:00"}
                       </Text>
                     </View>
                   </View>
@@ -199,7 +153,7 @@ export default function SpotifyScreen() {
                   {/* Controls */}
                   <View className="flex-row justify-center gap-6 mt-2">
                     <Pressable
-                      onPress={() => setQueue((q) => [currentSong, ...q])}
+                      onPress={() => {}}
                       style={({ pressed }) => [
                         styles.controlButton,
                         { opacity: pressed ? 0.6 : 1 },
@@ -209,7 +163,7 @@ export default function SpotifyScreen() {
                     </Pressable>
 
                     <Pressable
-                      onPress={handlePlayPause}
+                      onPress={togglePlayPause}
                       style={({ pressed }) => [
                         styles.playButton,
                         {
@@ -224,7 +178,7 @@ export default function SpotifyScreen() {
                     </Pressable>
 
                     <Pressable
-                      onPress={handleSkip}
+                      onPress={skipToNext}
                       style={({ pressed }) => [
                         styles.controlButton,
                         { opacity: pressed ? 0.6 : 1 },
@@ -287,7 +241,7 @@ export default function SpotifyScreen() {
 
                   {/* Disconnect Button */}
                   <Pressable
-                    onPress={handleDisconnect}
+                    onPress={disconnect}
                     style={({ pressed }) => [
                       styles.disconnectButton,
                       {
