@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
+import axios from "axios";
+
+WebBrowser.maybeCompleteAuthSession();
 
 export interface SpotifyTrack {
   id: string;
@@ -7,124 +12,167 @@ export interface SpotifyTrack {
   artist: string;
   duration: number;
   progress: number;
+  albumArt?: string;
 }
 
-const SPOTIFY_STORAGE_KEY = "@r3connect/spotify";
+const SPOTIFY_STORAGE_KEY = "@r3connect/spotify_token";
+const CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID || ""; // O usuário precisará configurar isso
+const REDIRECT_URI = AuthSession.makeRedirectUri({
+  scheme: "manus-r3connect", // Deve coincidir com o scheme no app.config.ts
+});
+
+const discovery = {
+  authorizationEndpoint: "https://accounts.spotify.com/authorize",
+  tokenEndpoint: "https://accounts.spotify.com/api/token",
+};
 
 export function useSpotify() {
+  const [token, setToken] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
   const [queue, setQueue] = useState<SpotifyTrack[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar estado anterior
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: CLIENT_ID,
+      scopes: [
+        "user-read-currently-playing",
+        "user-read-playback-state",
+        "user-modify-playback-state",
+        "user-read-recently-played",
+      ],
+      usePKCE: false,
+      redirectUri: REDIRECT_URI,
+    },
+    discovery
+  );
+
+  // Carregar token salvo
   useEffect(() => {
-    const loadSpotifyState = async () => {
+    const loadToken = async () => {
       try {
-        const stored = await AsyncStorage.getItem(SPOTIFY_STORAGE_KEY);
-        if (stored) {
-          const { isConnected: wasConnected } = JSON.parse(stored);
-          setIsConnected(wasConnected);
+        const savedToken = await AsyncStorage.getItem(SPOTIFY_STORAGE_KEY);
+        if (savedToken) {
+          setToken(savedToken);
+          setIsConnected(true);
         }
       } catch (error) {
-        console.error("Erro ao carregar estado Spotify:", error);
+        console.error("Erro ao carregar token Spotify:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
-    loadSpotifyState();
+    loadToken();
   }, []);
 
-  // Conectar ao Spotify
-  const connect = useCallback(async () => {
-    try {
-      // Simular autenticação OAuth
+  // Lidar com a resposta da autenticação
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { access_token } = response.params;
+      setToken(access_token);
       setIsConnected(true);
-      setIsPlaying(true);
-
-      // Carregar faixa inicial
-      const initialTrack: SpotifyTrack = {
-        id: "1",
-        title: "Midnight City",
-        artist: "M83",
-        duration: 244,
-        progress: 0,
-      };
-
-      setCurrentTrack(initialTrack);
-
-      // Carregar fila
-      const initialQueue: SpotifyTrack[] = [
-        { id: "2", title: "Electric Feel", artist: "MGMT", duration: 236, progress: 0 },
-        { id: "3", title: "Take On Me", artist: "a-ha", duration: 225, progress: 0 },
-        { id: "4", title: "Synthwave Dreams", artist: "The Midnight", duration: 256, progress: 0 },
-      ];
-
-      setQueue(initialQueue);
-
-      // Salvar estado
-      await AsyncStorage.setItem(
-        SPOTIFY_STORAGE_KEY,
-        JSON.stringify({
-          isConnected: true,
-          timestamp: Date.now(),
-        })
-      );
-    } catch (error) {
-      console.error("Erro ao conectar ao Spotify:", error);
+      AsyncStorage.setItem(SPOTIFY_STORAGE_KEY, access_token);
     }
-  }, []);
+  }, [response]);
 
-  // Desconectar do Spotify
-  const disconnect = useCallback(async () => {
+  // Buscar estado atual do player
+  const fetchPlaybackState = useCallback(async () => {
+    if (!token) return;
+
     try {
-      setIsConnected(false);
-      setIsPlaying(false);
-      setCurrentTrack(null);
-      setQueue([]);
+      const res = await axios.get("https://api.spotify.com/v1/me/player", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      await AsyncStorage.setItem(
-        SPOTIFY_STORAGE_KEY,
-        JSON.stringify({
-          isConnected: false,
-          timestamp: Date.now(),
-        })
-      );
+      if (res.status === 200 && res.data) {
+        const item = res.data.item;
+        setIsPlaying(res.data.is_playing);
+        setCurrentTrack({
+          id: item.id,
+          title: item.name,
+          artist: item.artists.map((a: any) => a.name).join(", "),
+          duration: item.duration_ms / 1000,
+          progress: res.data.progress_ms / 1000,
+          albumArt: item.album.images[0]?.url,
+        });
+      } else if (res.status === 204) {
+        // Nada tocando
+        setCurrentTrack(null);
+        setIsPlaying(false);
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        // Token expirado
+        disconnect();
+      }
+      console.error("Erro ao buscar playback Spotify:", error);
+    }
+  }, [token]);
+
+  // Atualizar periodicamente se estiver conectado
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isConnected && token) {
+      fetchPlaybackState();
+      interval = setInterval(fetchPlaybackState, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [isConnected, token, fetchPlaybackState]);
+
+  const connect = useCallback(async () => {
+    if (!CLIENT_ID) {
+      alert("Spotify Client ID não configurado. Verifique o arquivo .env");
+      return;
+    }
+    promptAsync();
+  }, [promptAsync]);
+
+  const disconnect = useCallback(async () => {
+    setToken(null);
+    setIsConnected(false);
+    setIsPlaying(false);
+    setCurrentTrack(null);
+    await AsyncStorage.removeItem(SPOTIFY_STORAGE_KEY);
+  }, []);
+
+  const togglePlayPause = useCallback(async () => {
+    if (!token) return;
+    try {
+      const endpoint = isPlaying ? "pause" : "play";
+      await axios.put(`https://api.spotify.com/v1/me/player/${endpoint}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setIsPlaying(!isPlaying);
     } catch (error) {
-      console.error("Erro ao desconectar do Spotify:", error);
+      console.error("Erro ao alternar play/pause:", error);
     }
-  }, []);
+  }, [token, isPlaying]);
 
-  // Play/Pause
-  const togglePlayPause = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-  }, []);
-
-  // Skip para próxima faixa
-  const skipToNext = useCallback(() => {
-    if (queue.length > 0) {
-      const [nextTrack, ...rest] = queue;
-      setCurrentTrack(nextTrack);
-      setQueue(rest);
+  const skipToNext = useCallback(async () => {
+    if (!token) return;
+    try {
+      await axios.post("https://api.spotify.com/v1/me/player/next", {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTimeout(fetchPlaybackState, 500);
+    } catch (error) {
+      console.error("Erro ao pular música:", error);
     }
-  }, [queue]);
+  }, [token, fetchPlaybackState]);
 
-  // Voltar para faixa anterior
-  const skipToPrevious = useCallback(() => {
-    if (currentTrack) {
-      setQueue([currentTrack, ...queue]);
+  const skipToPrevious = useCallback(async () => {
+    if (!token) return;
+    try {
+      await axios.post("https://api.spotify.com/v1/me/player/previous", {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTimeout(fetchPlaybackState, 500);
+    } catch (error) {
+      console.error("Erro ao voltar música:", error);
     }
-  }, [currentTrack, queue]);
-
-  // Atualizar progresso da faixa
-  const updateProgress = useCallback((progress: number) => {
-    setCurrentTrack((prev) => {
-      if (!prev) return prev;
-      return { ...prev, progress };
-    });
-  }, []);
+  }, [token, fetchPlaybackState]);
 
   return {
     isConnected,
@@ -137,6 +185,6 @@ export function useSpotify() {
     togglePlayPause,
     skipToNext,
     skipToPrevious,
-    updateProgress,
+    updateProgress: () => {}, // O progresso agora vem da API
   };
 }

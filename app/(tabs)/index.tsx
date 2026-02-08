@@ -1,10 +1,11 @@
-import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
+import { ScrollView, Text, View, Pressable, StyleSheet, Animated, Image } from "react-native";
 import { useEffect, useState, useRef } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useTripData } from "@/hooks/use-trip-data";
 import { useBluetooth } from "@/hooks/use-bluetooth";
 import { useGPS } from "@/hooks/use-gps";
+import { useSpotify } from "@/hooks/use-spotify";
 import { GlassCard } from "@/components/glass-card";
 import { NotificationBanner } from "@/components/notification-banner";
 import { TripHistoryModal } from "@/components/trip-history-modal";
@@ -21,13 +22,18 @@ export default function HomeScreen() {
 
   const { trips, startTrip, addWaypoint, endTrip } = useTripData();
   const { isConnected: bluetoothConnected } = useBluetooth();
-  const { location, permission } = useGPS();
+  const { location, permission, startTracking, stopTracking } = useGPS();
+  const { currentTrack, isPlaying, togglePlayPause, isConnected: spotifyConnected, connect: connectSpotify } = useSpotify();
   const speedometerScale = useRef(new Animated.Value(1)).current;
 
-  // Iniciar/parar rastreamento GPS
+  // Iniciar/parar rastreamento GPS real
   useEffect(() => {
-    // O rastreamento é gerenciado pelo hook useGPS
-  }, []);
+    if (isTracking) {
+      startTracking();
+    } else {
+      stopTracking();
+    }
+  }, [isTracking, startTracking, stopTracking]);
 
   // Adicionar waypoint quando localização mudar
   useEffect(() => {
@@ -205,60 +211,45 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Status Cards */}
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <GlassCard>
-                <View className="gap-2">
-                  <Text className="text-xs font-semibold text-muted">TEMPERATURA</Text>
-                  <Text className="text-3xl font-bold text-foreground">68°C</Text>
-                  <Text className="text-xs text-muted">Normal</Text>
+          {/* Spotify Mini Player - Real Integration */}
+          <Pressable onPress={spotifyConnected ? togglePlayPause : connectSpotify}>
+            <GlassCard variant="tertiary">
+              <View className="flex-row items-center gap-3">
+                <View
+                  style={[
+                    styles.albumArt,
+                    {
+                      backgroundColor: colors.primary,
+                    },
+                  ]}
+                >
+                  {currentTrack?.albumArt ? (
+                    <Image source={{ uri: currentTrack.albumArt }} style={styles.albumArtImage} />
+                  ) : (
+                    <Text className="text-2xl">🎵</Text>
+                  )}
                 </View>
-              </GlassCard>
-            </View>
-
-            <View className="flex-1">
-              <GlassCard>
-                <View className="gap-2">
-                  <Text className="text-xs font-semibold text-muted">BATERIA</Text>
-                  <Text className="text-3xl font-bold text-foreground">12.6V</Text>
-                  <Text className="text-xs text-muted">OK</Text>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                    {currentTrack?.title || "Spotify"}
+                  </Text>
+                  <Text className="text-xs text-muted" numberOfLines={1}>
+                    {currentTrack?.artist || (spotifyConnected ? "Nada tocando" : "Toque para conectar")}
+                  </Text>
                 </View>
-              </GlassCard>
-            </View>
-          </View>
-
-          {/* Spotify Mini Player */}
-          <GlassCard variant="tertiary">
-            <View className="flex-row items-center gap-3">
-              <View
-                style={[
-                  styles.albumArt,
-                  {
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text className="text-2xl">🎵</Text>
+                <View
+                  style={[
+                    styles.playButton,
+                    {
+                      backgroundColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <Text className="text-lg text-white">{isPlaying ? "⏸" : "▶"}</Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-foreground">
-                  Spotify
-                </Text>
-                <Text className="text-xs text-muted">Toque para conectar</Text>
-              </View>
-              <View
-                style={[
-                  styles.playButton,
-                  {
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text className="text-lg">▶</Text>
-              </View>
-            </View>
-          </GlassCard>
+            </GlassCard>
+          </Pressable>
 
           {/* Action Buttons */}
           <View className="gap-3">
@@ -300,7 +291,7 @@ export default function HomeScreen() {
             <GlassCard variant="secondary">
               <View className="gap-1">
                 <Text className="text-xs font-bold text-muted mb-2">
-                  LOCALIZAÇÃO
+                  LOCALIZAÇÃO REAL
                 </Text>
                 <Text className="text-xs text-foreground font-mono">
                   Lat: {location.latitude.toFixed(4)}
@@ -309,7 +300,7 @@ export default function HomeScreen() {
                   Lon: {location.longitude.toFixed(4)}
                 </Text>
                 <Text className="text-xs text-foreground font-mono mt-1">
-                  Rumo: {Math.round(location.heading)}°
+                  Velocidade: {Math.round(location.speed)} km/h
                 </Text>
               </View>
             </GlassCard>
@@ -377,6 +368,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+  },
+  albumArtImage: {
+    width: "100%",
+    height: "100%",
   },
   playButton: {
     width: 36,

@@ -1,80 +1,92 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Platform, PermissionsAndroid } from "react-native";
+import { BleManager, Device, State } from "react-native-ble-plx";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BLUETOOTH_STORAGE_KEY = "@r3connect/bluetooth";
+const manager = new BleManager();
 
 export function useBluetooth() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [deviceName, setDeviceName] = useState("Yamaha R3 CCU");
   const [isLoading, setIsLoading] = useState(true);
+  const [foundDevices, setFoundDevices] = useState<Device[]>([]);
+  const connectedDevice = useRef<Device | null>(null);
 
-  // Carregar estado de conexão anterior
+  // Solicitar permissões no Android
+  const requestPermissions = async () => {
+    if (Platform.OS === "android") {
+      await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      ]);
+    }
+  };
+
   useEffect(() => {
-    const loadBluetoothState = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(BLUETOOTH_STORAGE_KEY);
-        if (stored) {
-          const { isConnected: wasConnected } = JSON.parse(stored);
-          // Não restaurar conexão automaticamente por segurança
-          setIsConnected(false);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar estado Bluetooth:", error);
-      } finally {
+    requestPermissions();
+    
+    const subscription = manager.onStateChange((state) => {
+      if (state === State.PoweredOn) {
         setIsLoading(false);
       }
-    };
+    }, true);
 
-    loadBluetoothState();
+    return () => subscription.remove();
   }, []);
 
-  // Conectar ao dispositivo
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (device?: Device) => {
     setIsConnecting(true);
     
-    // Simular delay de conexão (2 segundos)
-    return new Promise<void>((resolve) => {
-      setTimeout(async () => {
-        setIsConnected(true);
-        setIsConnecting(false);
-
-        // Salvar estado
-        try {
-          await AsyncStorage.setItem(
-            BLUETOOTH_STORAGE_KEY,
-            JSON.stringify({
-              isConnected: true,
-              deviceName,
-              timestamp: Date.now(),
-            })
-          );
-        } catch (error) {
-          console.error("Erro ao salvar estado Bluetooth:", error);
-        }
-
-        resolve();
-      }, 2000);
-    });
-  }, [deviceName]);
-
-  // Desconectar do dispositivo
-  const disconnect = useCallback(async () => {
-    setIsConnected(false);
-
     try {
-      await AsyncStorage.setItem(
-        BLUETOOTH_STORAGE_KEY,
-        JSON.stringify({
-          isConnected: false,
-          deviceName,
-          timestamp: Date.now(),
-        })
-      );
+      // Se um dispositivo específico for passado, conecta a ele
+      // Caso contrário, inicia o scan por dispositivos com nome "Yamaha" ou "R3"
+      if (device) {
+        const connected = await device.connect();
+        await connected.discoverAllServicesAndCharacteristics();
+        connectedDevice.current = connected;
+        setIsConnected(true);
+      } else {
+        // Scan simplificado para demonstração real
+        manager.startDeviceScan(null, null, async (error, scannedDevice) => {
+          if (error) {
+            console.error("Erro no scan:", error);
+            setIsConnecting(false);
+            return;
+          }
+
+          if (scannedDevice?.name?.includes("Yamaha") || scannedDevice?.name?.includes("R3")) {
+            manager.stopDeviceScan();
+            const connected = await scannedDevice.connect();
+            await connected.discoverAllServicesAndCharacteristics();
+            connectedDevice.current = connected;
+            setDeviceName(scannedDevice.name || "Yamaha R3");
+            setIsConnected(true);
+            setIsConnecting(false);
+          }
+        });
+
+        // Timeout de scan (10 segundos)
+        setTimeout(() => {
+          manager.stopDeviceScan();
+          if (!isConnected) setIsConnecting(false);
+        }, 10000);
+      }
     } catch (error) {
-      console.error("Erro ao salvar estado Bluetooth:", error);
+      console.error("Erro ao conectar Bluetooth:", error);
+      setIsConnecting(false);
     }
-  }, [deviceName]);
+  }, [isConnected]);
+
+  const disconnect = useCallback(async () => {
+    if (connectedDevice.current) {
+      await connectedDevice.current.cancelConnection();
+      connectedDevice.current = null;
+    }
+    setIsConnected(false);
+  }, []);
 
   return {
     isConnected,
@@ -83,5 +95,6 @@ export function useBluetooth() {
     deviceName,
     connect,
     disconnect,
+    foundDevices,
   };
 }
