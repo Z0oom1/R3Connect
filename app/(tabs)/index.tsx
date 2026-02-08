@@ -1,26 +1,17 @@
 import { ScrollView, Text, View, Pressable, StyleSheet, Animated } from "react-native";
 import { useEffect, useState, useRef } from "react";
-import * as Location from "expo-location";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useTripData } from "@/hooks/use-trip-data";
 import { useBluetooth } from "@/hooks/use-bluetooth";
+import { useGPS } from "@/hooks/use-gps";
 import { GlassCard } from "@/components/glass-card";
 import { NotificationBanner } from "@/components/notification-banner";
 import { TripHistoryModal } from "@/components/trip-history-modal";
 
-interface LocationData {
-  speed: number;
-  heading: number;
-  latitude: number;
-  longitude: number;
-}
-
 export default function HomeScreen() {
   const colors = useColors();
-  const [location, setLocation] = useState<LocationData | null>(null);
   const [isTracking, setIsTracking] = useState(false);
-  const [permission, setPermission] = useState<boolean | null>(null);
   const [showTripHistory, setShowTripHistory] = useState(false);
   const [notification, setNotification] = useState<{
     type: "success" | "error" | "warning" | "info";
@@ -30,60 +21,26 @@ export default function HomeScreen() {
 
   const { trips, startTrip, addWaypoint, endTrip } = useTripData();
   const { isConnected: bluetoothConnected } = useBluetooth();
+  const { location, permission } = useGPS();
   const speedometerScale = useRef(new Animated.Value(1)).current;
 
+  // Iniciar/parar rastreamento GPS
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setPermission(status === "granted");
-    })();
+    // O rastreamento é gerenciado pelo hook useGPS
   }, []);
 
+  // Adicionar waypoint quando localização mudar
   useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
-
-    const startTracking = async () => {
-      if (permission) {
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 1000,
-            distanceInterval: 1,
-          },
-          (loc: Location.LocationObject) => {
-            const speed = (loc.coords.speed || 0) * 3.6;
-            const newLocation = {
-              speed: Math.round(speed * 10) / 10,
-              heading: loc.coords.heading || 0,
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            };
-            setLocation(newLocation);
-
-            if (isTracking) {
-              addWaypoint(
-                {
-                  latitude: newLocation.latitude,
-                  longitude: newLocation.longitude,
-                },
-                newLocation.speed
-              );
-            }
-          }
-        );
-      }
-    };
-
-    if (isTracking && permission) {
-      startTracking();
+    if (isTracking && location) {
+      addWaypoint(
+        {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+        location.speed
+      );
     }
-
-    return () => {
-      if (subscription) {
-        subscription.remove();
-      }
-    };
-  }, [isTracking, permission, addWaypoint]);
+  }, [location, isTracking, addWaypoint]);
 
   const speed = location?.speed || 0;
   const speedPercentage = Math.min((speed / 200) * 100, 100);
@@ -307,11 +264,12 @@ export default function HomeScreen() {
           <View className="gap-3">
             <Pressable
               onPress={isTracking ? handleStopTracking : handleStartTracking}
+              disabled={!permission}
               style={({ pressed }) => [
                 styles.primaryButton,
                 {
                   backgroundColor: isTracking ? "#FF3B30" : colors.primary,
-                  opacity: pressed ? 0.85 : 1,
+                  opacity: pressed ? 0.85 : !permission ? 0.5 : 1,
                 },
               ]}
             >
