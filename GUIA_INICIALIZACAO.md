@@ -46,8 +46,9 @@ Para rodar o aplicativo e testar no seu iPhone:
 
 1.  Inicie o servidor de desenvolvimento:
     ```bash
-    pnpm run ios
+    pnpm dev
     ```
+    *(Nota: No Windows, não use `pnpm run ios`, pois ele exige um Mac com Xcode. O comando `pnpm dev` abrirá o servidor para você conectar seu iPhone real).*
 2.  O terminal exibirá um **QR Code**.
 3.  Abra o app **Expo Go** no seu iPhone e escaneie o código.
 
