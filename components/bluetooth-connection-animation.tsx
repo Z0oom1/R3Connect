@@ -19,7 +19,6 @@ export function BluetoothConnectionAnimation({
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const [animationKey, setAnimationKey] = useState(0);
 
   useEffect(() => {
     if (isConnecting) {
